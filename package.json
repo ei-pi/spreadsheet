@@ -1,0 +1,6 @@
+{
+    "name": "suroi_spreadsheet_goofies",
+    "devDependencies": {
+        "typescript": "^5.3.3"
+    }
+}

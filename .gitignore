@@ -1,3 +1,5 @@
 .DS_Store
 *.js
 *.js.map
+node_modules/
+.vscode/
