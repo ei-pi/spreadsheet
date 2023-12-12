@@ -1,11 +1,9 @@
-import { TableColumn } from "./components/TableView/TableColumn.js";
 import { TableView } from "./components/TableView/TableView.js";
+import { columns } from "./models/v0.14.0/exporter.js";
+import { Guns, type GunDefinition } from "./models/v0.14.0/guns.js";
 
-const tableView = new TableView<{ x: number, y: number }>("bleh");
-tableView.addColumn(new TableColumn("x", e => `${e.x}`));
-tableView.addColumn(new TableColumn("y", e => `${e.y}`));
-tableView.addAll(
-    { x: 0, y: 2 },
-    { x: 4, y: 1 }
-);
+const tableView = new TableView<GunDefinition>();
+
+tableView.addAll(...Guns);
+tableView.setColumns(...columns);
 tableView.addToNode(document.body);

@@ -1,4 +1,4 @@
-import { makeElement } from "../../util.js";
+import { Maybe, type Mutable, makeElement } from "../../util.js";
 import { TableColumn } from "./TableColumn.js";
 
 /**
@@ -19,16 +19,13 @@ export class TableView<Element> {
     readonly #backingSet: Set<Element> = new Set();
     readonly #backingArray: Element[] = [];
 
-    readonly #columnSet: Set<TableColumn<Element, unknown>> = new Set();
-    readonly #columnsArray: TableColumn<Element, unknown>[] = [];
+    readonly #columnSet: Set<TableColumn<Element>> = new Set();
+    readonly #columnsArray: TableColumn<Element>[] = [];
 
     readonly #objectRowMap: Map<Element, HTMLTableRowElement> = new Map;
+    readonly #columnHeaderCellMap: Map<TableColumn<Element>, HTMLTableCellElement> = new Map();
 
-    title: string;
-
-    constructor(title?: string) {
-        this.title = title ?? "";
-
+    constructor() {
         const header = makeElement("thead");
         const body = makeElement("tbody");
         const footer = makeElement("tfoot");
@@ -42,18 +39,34 @@ export class TableView<Element> {
             get body() { return body; },
             get footer() { return footer; }
         };
+
+        this.addColumn(
+            new TableColumn("", obj => obj)
+        );
+    }
+
+    #generateTableCell(column: TableColumn<Element>, item: Element) {
+        const value = column.converter(item),
+            props: Mutable<NonNullable<Parameters<typeof makeElement<"td">>[1]>> = {
+                innerText: String(value)
+            };
+
+        if (value instanceof Maybe && !value.hasValue) {
+            props.className = "no-value-wrapper";
+            props.title = "No value was specified for this attribute";
+        }
+
+        return makeElement(
+            "td",
+            props
+        );
     }
 
     #createHydratedRow(item: Element) {
         const row = makeElement(
             "tr",
             {},
-            this.#columnsArray.map(col => makeElement(
-                "td",
-                {
-                    innerText: String(col.converter(item))
-                }
-            ))
+            this.#columnsArray.map(col => this.#generateTableCell(col, item))
         );
 
         this.#objectRowMap.set(item, row);
@@ -96,11 +109,13 @@ export class TableView<Element> {
                 if (this.#addItemToBackings(item)) {
                     return this.#createHydratedRow(item);
                 }
-            }).filter(((e?: HTMLTableRowElement) => e) as unknown as (e?: HTMLTableRowElement) => e is HTMLTableRowElement)
+            }).filter(
+                ((e: any) => e) as unknown as (e?: HTMLTableRowElement) => e is HTMLTableRowElement
+            )
         );
     }
 
-    #addColumnToBackings(column: TableColumn<Element, unknown>) {
+    #addColumnToBackings(column: TableColumn<Element>) {
         if (this.#columnSet.has(column)) return false;
 
         const wasEmpty = this.#columnSet.size == 0;
@@ -122,30 +137,67 @@ export class TableView<Element> {
         return true;
     }
 
-    addColumn(column: TableColumn<Element, unknown>) {
+    removeAllColumns() {
+        this.#columnSet.clear();
+        this.#columnsArray.length = 0;
+
+        this.#columnHeaderCellMap.clear();
+        this.#dom.columnTitles.remove();
+        this.#dom.header.remove();
+
+        this.#dom.columnTitles.childNodes.forEach(node => node.remove());
+        this.#objectRowMap.forEach(row => row.childNodes.forEach(node => node.remove()));
+    }
+
+    addColumn(column: TableColumn<Element>) {
         if (this.#addColumnToBackings(column)) {
-            this.#dom.columnTitles.appendChild(
-                makeElement(
-                    "td",
-                    {
-                        innerText: column.title
-                    }
-                )
+            const headerCell = makeElement(
+                "td",
+                {
+                    innerText: column.title,
+                    title: column.description
+                }
             );
+            this.#columnHeaderCellMap.set(column, headerCell);
+            this.#dom.columnTitles.appendChild(headerCell);
+
+            this.#objectRowMap.forEach((row, obj) => {
+                row.appendChild(this.#generateTableCell(column, obj));
+            });
         }
     }
 
-    addColumns(...columns: TableColumn<Element, unknown>[]) {
-        columns.map(col => {
+    setColumns(...columns: TableColumn<Element>[]) {
+        this.removeAllColumns();
+        this.addColumns(...columns);
+    }
+
+    addColumns(...columns: TableColumn<Element>[]) {
+        const mapping = columns.map(col => {
             if (this.#addColumnToBackings(col)) {
-                return makeElement(
-                    "td",
-                    {
-                        innerText: col.title
-                    }
-                );
+                this.#objectRowMap.forEach((row, obj) => {
+                    row.appendChild(this.#generateTableCell(col, obj));
+                });
+
+                return [
+                    col,
+                    makeElement(
+                        "td",
+                        {
+                            innerText: col.title,
+                            title: col.description
+                        }
+                    )
+                ] as const;
             }
-        });
+        }).filter(
+            ((e: any) => e) as unknown as (e?: readonly [TableColumn<Element>, HTMLTableCellElement]) => e is readonly [TableColumn<Element>, HTMLTableCellElement]
+        );
+
+        this.#dom.columnTitles.append(...mapping.map(([, header]) => header));
+        for (const [col, header] of mapping) {
+            this.#columnHeaderCellMap.set(col, header);
+        }
     }
 
     addToNode(parent: Node) {

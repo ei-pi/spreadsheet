@@ -1,6 +1,6 @@
 /**
  * An extension of the `Partial` type provided natively by Typescript that recursively renders fields optional
- * @template T The object to render partial
+ * @template T The type whose fields are to be rendered partial
  */
 export type DeepPartial<T extends object> = {
     [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K];
@@ -8,10 +8,18 @@ export type DeepPartial<T extends object> = {
 
 /**
  * An extension of the `Required` type provided natively by Typescript that recursively renders fields required
- * @template T The object to render required
+ * @template T The type whose fields are to be rendered required
  */
 export type DeepRequired<T extends object> = {
     [K in keyof T]-?: T[K] extends object ? DeepRequired<T[K]> : T[K];
+};
+
+/**
+ * The inverse of the natively provided `Readonly` type, this type marks all fields as mutable
+ * @template T The type whose fields are to be rendered mutable
+ */
+export type Mutable<T extends object> = {
+    -readonly [K in keyof T]: T[K]
 };
 
 /**
@@ -84,4 +92,50 @@ export function makeElement<K extends keyof HTMLElementTagNameMap>(
                 (element.addEventListener as any /* anyScript */)(event, li.callback, li.options);
 
     return element;
+}
+
+export class Maybe<T> {
+    #hasValue: boolean;
+    get hasValue() { return this.#hasValue; }
+
+    #value: T | undefined;
+    get value() {
+        if (this.#hasValue) {
+            return this.#value;
+        }
+
+        throw new Error("No value present");
+    }
+
+    static #allowInstantiation = false;
+
+    static from<T>(value: T) {
+        Maybe.#allowInstantiation = true;
+        const maybe = new Maybe(true, value);
+        Maybe.#allowInstantiation = false;
+        return maybe;
+    }
+
+    static empty<T>() {
+        Maybe.#allowInstantiation = true;
+        const maybe = new Maybe<T>(false);
+        Maybe.#allowInstantiation = false;
+        return maybe;
+    }
+
+    private constructor(hasValue: false)
+    private constructor(hasValue: true, value: T)
+    private constructor(hasValue: boolean, value?: T) {
+        if (!Maybe.#allowInstantiation) {
+            throw new Error("Cannot invoke this class' constructor directly. Use the static from or empty methods.");
+        }
+
+        if (this.#hasValue = hasValue) {
+            this.#value = value;
+        }
+    }
+
+    toString() {
+        return this.#hasValue ? String(this.#value) : "ø";
+    }
 }
