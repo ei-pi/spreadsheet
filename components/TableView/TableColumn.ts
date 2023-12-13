@@ -20,14 +20,14 @@ export class TableColumn<Element, Data = unknown> {
 
         prototypes.map(obj => Object.keys(obj) as (keyof T)[]).flat().forEach(keys.add.bind(keys));
 
-        return [...keys].map(e => TableColumn.fromObjectKey(e));
+        return [...keys].map(e => TableColumn.fromObjectKey<T, keyof T>(e));
     }
 
     static fromObjectKeys<T extends object>(prototype: T) {
-        return (Object.keys(prototype) as (keyof T)[]).map(key => TableColumn.fromObjectKey(key));
+        return (Object.keys(prototype) as (keyof T)[]).map(key => TableColumn.fromObjectKey<T, keyof T>(key));
     }
 
-    static fromObjectKey<T extends object>(key: keyof T, displayName: string = String(key), description = "") {
-        return new TableColumn<T>(displayName, e => key in e ? Maybe.from(e[key]) : Maybe.empty(), description);
+    static fromObjectKey<T extends object, K extends keyof T = keyof T>(key: K, displayName: string = String(key), description = "") {
+        return new TableColumn<T, Maybe<T[K]>>(displayName, e => key in e ? Maybe.from(e[key]) : Maybe.empty(), description);
     }
 }

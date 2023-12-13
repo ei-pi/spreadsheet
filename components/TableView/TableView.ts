@@ -25,6 +25,16 @@ export class TableView<Element> {
     readonly #objectRowMap: Map<Element, HTMLTableRowElement> = new Map;
     readonly #columnHeaderCellMap: Map<TableColumn<Element>, HTMLTableCellElement> = new Map();
 
+    #tableCellGenerator = this.#generateTableCell;
+    get tableCellGenerator() { return this.#tableCellGenerator; }
+    set tableCellGenerator(value) {
+        this.#tableCellGenerator = value;
+
+        this.#objectRowMap.forEach((row, item) => {
+            row.replaceChildren(...this.#columnsArray.map(col => value(col, item)));
+        });
+    }
+
     constructor() {
         const header = makeElement("thead");
         const body = makeElement("tbody");
@@ -66,7 +76,7 @@ export class TableView<Element> {
         const row = makeElement(
             "tr",
             {},
-            this.#columnsArray.map(col => this.#generateTableCell(col, item))
+            this.#columnsArray.map(col => this.tableCellGenerator(col, item))
         );
 
         this.#objectRowMap.set(item, row);
@@ -162,7 +172,7 @@ export class TableView<Element> {
             this.#dom.columnTitles.appendChild(headerCell);
 
             this.#objectRowMap.forEach((row, obj) => {
-                row.appendChild(this.#generateTableCell(column, obj));
+                row.appendChild(this.tableCellGenerator(column, obj));
             });
         }
     }
@@ -176,7 +186,7 @@ export class TableView<Element> {
         const mapping = columns.map(col => {
             if (this.#addColumnToBackings(col)) {
                 this.#objectRowMap.forEach((row, obj) => {
-                    row.appendChild(this.#generateTableCell(col, obj));
+                    row.appendChild(this.tableCellGenerator(col, obj));
                 });
 
                 return [
