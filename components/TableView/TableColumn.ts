@@ -1,4 +1,5 @@
-import { Maybe } from "../../util.js";
+import { Maybe, makeElement } from "../../util.js";
+import { TableView } from "./TableView.js";
 
 /**
  * A class representing a column in a table

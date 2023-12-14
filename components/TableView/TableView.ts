@@ -1,4 +1,4 @@
-import { Maybe, type Mutable, makeElement } from "../../util.js";
+import { Maybe, makeElement, type Mutable } from "../../util.js";
 import { TableColumn } from "./TableColumn.js";
 
 /**
@@ -213,4 +213,86 @@ export class TableView<Element> {
     addToNode(parent: Node) {
         parent.appendChild(this.#dom.container);
     }
+}
+
+export  class PropertyDesc<Type = unknown, Value = any> {
+    constructor(
+        readonly path: string[],
+        readonly prettyName: string,
+        readonly description: string,
+        readonly defaultValue?: Value | null,
+        readonly config?: {
+            readonly readonly?: boolean,
+            readonly postProcessor?: (value: Value, item?: Type) => unknown,
+            readonly cellGenerator?: (column: TableColumn<Type, Maybe<unknown>>, item: Type) => HTMLTableCellElement;
+        },
+    ) { }
+}
+
+export function prepareTableView<Type = unknown>(...properties: PropertyDesc<Type>[]) {
+    const columnPropertyMap = new Map<TableColumn<Type, Maybe<unknown>>, PropertyDesc<Type, unknown>>(),
+        columns = properties.map((propertyDesc) => {
+            const column = new TableColumn<Type, Maybe<unknown>>(
+                propertyDesc.prettyName,
+                item => {
+                    let res: any = item;
+
+                    // walk the provided path
+                    for (const key of propertyDesc.path) {
+                        if (!(key in res)) {
+                            return Maybe.empty();
+                        }
+
+                        try {
+                            res = res[key];
+                        } catch (e: unknown) {
+                            return Maybe.empty();
+                        }
+                    }
+
+                    return Maybe.from((propertyDesc.config?.postProcessor ?? (<T>(e: T) => e))(res, item));
+                },
+                propertyDesc.description
+            );
+
+            columnPropertyMap.set(column, propertyDesc);
+
+            return column;
+        }),
+        tableCellGenerator = (column: TableColumn<Type, Maybe<unknown>>, item: Type) => {
+            const property = columnPropertyMap.get(column)!;
+
+            return (
+                property.config?.cellGenerator ?? (
+                    (column: TableColumn<Type, Maybe<unknown>>, item: Type) => {
+                        const value = column.converter(item),
+                            props: NonNullable<Parameters<typeof makeElement<"td">>[1]> = value.hasValue
+                                ? {
+                                    innerText: String(value)
+                                }
+                                : {
+                                    innerText: String((property.config?.postProcessor ?? (<T>(e: T) => e))(property.defaultValue, item)),
+                                    className: "no-value-wrapper",
+                                    title: "No value was specified for this attribute; shown here is the default value",
+                                    style: {
+                                        textAlign: "unset"
+                                    }
+                                };
+
+                        return makeElement(
+                            "td",
+                            props
+                        );
+                    }
+                )
+            )(column, item);
+        };
+
+    return <View extends TableView<Type> = TableView<Type>>(tableView: View, ...items: Type[]): View => {
+        tableView.tableCellGenerator = tableCellGenerator;
+        tableView.setColumns(...columns);
+        tableView.addAll(...items);
+
+        return tableView;
+    };
 }
