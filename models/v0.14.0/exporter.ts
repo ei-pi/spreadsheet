@@ -1,12 +1,7 @@
-import { TableColumn } from "../../components/TableView/TableColumn.js";
 import { prepareTableView, PropertyDesc, TableView } from "../../components/TableView/TableView.js";
-import { makeElement, Maybe } from "../../util.js";
+import { makeElement } from "../../util.js";
 import { Guns, type GunDefinition, type DualGunNarrowing, type SingleGunNarrowing } from "./guns.js";
 import { ItemType, FireMode, customImports, WearerAttributes } from "./imports.js";
-
-type PossibleKeys = keyof GunDefinition |
-    keyof (GunDefinition & { readonly fireMode: FireMode.Burst; }) |
-    keyof (GunDefinition & { readonly isDual: true; });
 
 const properties: PropertyDesc<GunDefinition>[] = [
     new PropertyDesc(
@@ -21,7 +16,25 @@ const properties: PropertyDesc<GunDefinition>[] = [
         "The type of ammo fired by this weapon",
         null,
         {
-            postProcessor: ammo => customImports.rawAmmos[ammo].name
+            postProcessor: ammo => customImports.rawAmmos[ammo].name,
+            cellGenerator(column, item) {
+                const hasCustomColor = item.ammoType in customImports.bulletColors;
+
+                return makeElement(
+                    "td",
+                    {
+                        innerText: String(customImports.rawAmmos[item.ammoType].name),
+                        className: hasCustomColor
+                            ? "outline-text"
+                            : "",
+                        style: {
+                            backgroundColor: hasCustomColor
+                                ? `#${customImports.bulletColors[item.ammoType].toString(16)}`
+                                : ""
+                        }
+                    }
+                );
+            },
         }
     ),
     new PropertyDesc(

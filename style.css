@@ -19,12 +19,16 @@ table {
     }
 
     table, tr, td {
-        border: 1px solid #000;
+        border: 1px solid #888;
     }
 
     table thead tr td {
         background-color: #ddd;
         color: #000;
+    }
+
+    table tbody tr td.outline-text {
+        -webkit-text-stroke: 0.5px #ddd;
     }
 
     table tbody tr td {
@@ -41,6 +45,7 @@ table {
     body {
         background-color: #222;
     }
+
     table, tr, td {
         border: 1px solid #777;
     }
@@ -53,6 +58,10 @@ table {
     table tbody tr td {
         background-color: #333;
         color: #ddd;
+    }
+
+    table tbody tr td.outline-text {
+        -webkit-text-stroke: 0.5px #333;
     }
 
     table tbody tr td.no-value-wrapper {

@@ -82,7 +82,8 @@ export function makeElement<K extends keyof HTMLElementTagNameMap>(
         else element[key] = value;
     }
 
-    children && element.append(...[children].flat().filter(v => v !== void 0));
+    if (children !== undefined)
+        element.append(...[children].flat());
 
     for (const [event, lis] of Object.entries(listeners ?? {}))
         for (const li of [lis].flat())
@@ -123,8 +124,8 @@ export class Maybe<T> {
         return maybe;
     }
 
-    private constructor(hasValue: false)
-    private constructor(hasValue: true, value: T)
+    private constructor(hasValue: false);
+    private constructor(hasValue: true, value: T);
     private constructor(hasValue: boolean, value?: T) {
         if (!Maybe.#allowInstantiation) {
             throw new Error("Cannot invoke this class' constructor directly. Use the static from or empty methods.");
