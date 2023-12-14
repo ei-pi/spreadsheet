@@ -62,8 +62,8 @@ const properties: PropertyDesc<GunDefinition>[] = [
     ),
     new PropertyDesc(
         ["ballistics", "speed"],
-        "Velocity (units/second)",
-        "The velocity, in units per second, at which this weapon's projectiles travel",
+        "Velocity (units/ms)",
+        "The velocity, in units per millisecond, at which this weapon's projectiles travel",
         null
     ),
     new PropertyDesc(

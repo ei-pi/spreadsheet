@@ -12,8 +12,56 @@ table {
     table-layout: fixed;
 }
 
-table, tr, td {
-    border: 1px solid black;
+
+@media (prefers-color-scheme: light) {
+    body {
+        background-color: #fff;
+    }
+
+    table, tr, td {
+        border: 1px solid #000;
+    }
+
+    table thead tr td {
+        background-color: #ddd;
+        color: #000;
+    }
+
+    table tbody tr td {
+        background-color: #fff;
+        color: #000;
+    }
+
+    table tbody tr td.no-value-wrapper {
+        background-color: #fbb;
+    }
+}
+
+@media (prefers-color-scheme: dark) {
+    body {
+        background-color: #222;
+    }
+    table, tr, td {
+        border: 1px solid #777;
+    }
+
+    table thead tr td {
+        background-color: #222;
+        color: #ddd;
+    }
+
+    table tbody tr td {
+        background-color: #333;
+        color: #ddd;
+    }
+
+    table tbody tr td.no-value-wrapper {
+        background-color: #400;
+    }
+}
+
+table {
+    border-spacing: 0;
 }
 
 table thead tr td,
@@ -22,12 +70,10 @@ table tbody tr td {
 }
 
 table thead tr td {
-    background-color: #ddd;
     padding: 2px 4px;
 }
 
 table tbody tr td.no-value-wrapper {
     cursor: not-allowed;
-    background-color: #fbb;
     text-align: center;
 }
