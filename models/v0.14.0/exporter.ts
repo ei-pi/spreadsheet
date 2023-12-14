@@ -1,8 +1,8 @@
 import { TableColumn } from "../../components/TableView/TableColumn.js";
 import { type TableView } from "../../components/TableView/TableView.js";
 import { makeElement, Maybe } from "../../util.js";
-import { Guns, type GunDefinition } from "./guns.js";
-import { ItemType, type FireMode } from "./imports.js";
+import { Guns, type GunDefinition, type DualGunNarrowing, type SingleGunNarrowing } from "./guns.js";
+import { ItemType, FireMode, customImports } from "./imports.js";
 
 type PossibleKeys = keyof GunDefinition |
     keyof (GunDefinition & { readonly fireMode: FireMode.Burst; }) |
@@ -14,8 +14,10 @@ class PropertyDesc<V = any> {
         readonly prettyName: string,
         readonly description: string,
         readonly defaultValue?: V | null,
-        readonly readonly?: boolean,
-        readonly postProcessor?: (value: V) => unknown
+        readonly config?: {
+            readonly readonly?: boolean,
+            readonly postProcessor?: (value: V, item?: GunDefinition) => unknown;
+        },
     ) { }
 }
 
@@ -26,11 +28,14 @@ const properties: Record<string, PropertyDesc> = {
         "The weapon's name, as displayed in the HUD",
         null
     ),
-    ammoType: new PropertyDesc(
+    ammoType: new PropertyDesc<string>(
         ["ammoType"],
         "Ammo type",
         "The type of ammo fired by this weapon",
-        null
+        null,
+        {
+            postProcessor: ammo => customImports.rawAmmos[ammo].name
+        }
     ),
     damage: new PropertyDesc(
         ["ballistics", "damage"],
@@ -128,11 +133,14 @@ const properties: Record<string, PropertyDesc> = {
         "The radius of a circle touching and in front of the muzzle within which the weapon's projectiles can spawn",
         0
     ),
-    fireMode: new PropertyDesc(
+    fireMode: new PropertyDesc<FireMode>(
         ["fireMode"],
         "Fire mode",
         "The manner in which this weapon fires",
-        undefined
+        null,
+        {
+            postProcessor: e => FireMode[e]
+        }
     ),
     ammoSpawnAmount: new PropertyDesc(
         ["ammoSpawnAmount"],
@@ -146,20 +154,68 @@ const properties: Record<string, PropertyDesc> = {
         "Whether a reload replenishes a single unit of ammunition (the alternative being the weapon's entire capacity)",
         false
     ),
+    shotsPerBurst: new PropertyDesc<number>(
+        ["burstProperties", "shotsPerBurst"],
+        "Shots per burst",
+        "How many shots will be fired per burst (aka when the mouse is held)",
+        null,
+        {
+            postProcessor(value, item) {
+                if (value !== null || item?.fireMode !== FireMode.Burst) return value;
+
+                return (Guns.find(gun => gun.idString == (item as DualGunNarrowing).singleVariant) as (SingleGunNarrowing & { readonly fireMode: FireMode.Burst; }) | undefined)?.burstProperties.shotsPerBurst;
+            }
+        }
+    ),
+    burstCooldown: new PropertyDesc<number>(
+        ["burstProperties", "burstCooldown"],
+        "Burst delay (ms)",
+        "The minimum amount of time after the last shot of the previous burst that must pass before a new burst can be fired",
+        null,
+        {
+            postProcessor(value, item) {
+                if (value !== null || item?.fireMode !== FireMode.Burst) return value;
+
+                return (Guns.find(gun => gun.idString == (item as DualGunNarrowing).singleVariant) as (SingleGunNarrowing & { readonly fireMode: FireMode.Burst; }) | undefined)?.burstProperties.burstCooldown;
+            }
+        }
+    ),
+    isDual: new PropertyDesc(
+        ["isDual"],
+        "Is a dual-wielded weapon?",
+        "Whether this specific weapon corresponds tu a dual-wielded item",
+        null
+    ),
+    singleVariant: new PropertyDesc(
+        ["singleVariant"],
+        "Single variant",
+        "The ID string of this weapon's single variant",
+        undefined
+    ),
+    dualVariant: new PropertyDesc(
+        ["dualVariant"],
+        "Dual variant",
+        "The ID string of this weapon's dual variant",
+        undefined
+    ),
     idString: new PropertyDesc(
         ["idString"],
         "ID string",
         "A string used internally to differentiate this weapon from others",
         null,
-        true
+        {
+            readonly: true
+        }
     ),
     itemType: new PropertyDesc<ItemType>(
         ["itemType"],
         "Item type",
         "The type of item this is. Should always be ItemType.Gun",
         null,
-        true,
-        val => ItemType[val]
+        {
+            readonly: true,
+            postProcessor: val => ItemType[val]
+        },
     ),
     noDrop: new PropertyDesc(
         ["noDrop"],
@@ -214,8 +270,9 @@ const properties: Record<string, PropertyDesc> = {
         "Tracer color",
         "A number specified in hexadecimal format that corresponds to the color the tracer will be tinted. White (0xFFFFFF) corresponds to no tint",
         0xFFFFFF,
-        false,
-        num => `#${num.toString(16).toUpperCase()}`
+        {
+            postProcessor: num => `#${num.toString(16).toUpperCase()}`
+        }
     ),
     tracerImage: new PropertyDesc(
         ["ballistics", "tracer", "image"],
@@ -283,29 +340,181 @@ const properties: Record<string, PropertyDesc> = {
         "Whether this weapon will summon an airdrop at the shooter's position when shot. Calls one airdrop per shot, not per projectile",
         false
     ),
-    fists: new PropertyDesc(
-        ["fists"],
-        "Hand rigging",
-        "The position of the shooter's hands when this weapon is active",
-        null
+    leftFistZIndex: new PropertyDesc(
+        ["fists", "leftZIndex"],
+        "Left hand z-index",
+        "The z-index of the player's left hand",
+        null,
+        {
+            postProcessor(value, item) {
+                if (value !== null || !item?.isDual) return value;
+
+                return (Guns.find(gun => gun.idString == (item as DualGunNarrowing).singleVariant) as SingleGunNarrowing | undefined)?.fists.leftZIndex ?? 1;
+            }
+        }
     ),
-    casingParticles: new PropertyDesc(
-        ["casingParticles"],
-        "Ejected casings",
-        "The way in which casings are (or aren't) ejected from this weapon",
+    rightFistZIndex: new PropertyDesc(
+        ["fists", "rightZIndex"],
+        "Right hand z-index",
+        "The z-index of the player's right hand",
+        null,
+        {
+            postProcessor(value, item) {
+                if (value !== null || !item?.isDual) return value;
+
+                return (Guns.find(gun => gun.idString == (item as DualGunNarrowing).singleVariant) as SingleGunNarrowing | undefined)?.fists.rightZIndex ?? 1;
+            }
+        }
+    ),
+    animationDuration: new PropertyDesc(
+        ["fists", "animationDuration"],
+        "Animation duration (ms)",
+        "How long it will take for the player's fists to get into their correct position when this weapon is switched to",
+        null,
+        {
+            postProcessor(value, item) {
+                if (value !== null || !item?.isDual) return value;
+
+                return (Guns.find(gun => gun.idString == (item as DualGunNarrowing).singleVariant) as SingleGunNarrowing | undefined)?.fists.animationDuration;
+            }
+        }
+    ),
+    leftX: new PropertyDesc(
+        ["fists", "left", "x"],
+        "x position of left fist",
+        "The x position of the left fist",
+        null,
+        {
+            postProcessor(value, item) {
+                if (value !== null || !item?.isDual) return value;
+
+                return (Guns.find(gun => gun.idString == (item as DualGunNarrowing).singleVariant) as SingleGunNarrowing | undefined)?.fists.left.x;
+            }
+        }
+    ),
+    leftY: new PropertyDesc(
+        ["fists", "left", "y"],
+        "y position of left fist",
+        "The y position of the left fist",
+        null,
+        {
+            postProcessor(value, item) {
+                if (value !== null || !item?.isDual) return value;
+
+                return (Guns.find(gun => gun.idString == (item as DualGunNarrowing).singleVariant) as SingleGunNarrowing | undefined)?.fists.left.y;
+            }
+        }
+    ),
+    rightX: new PropertyDesc(
+        ["fists", "right", "x"],
+        "x position of right fist",
+        "The x position of the right fist",
+        null,
+        {
+            postProcessor(value, item) {
+                if (value !== null || !item?.isDual) return value;
+
+                return (Guns.find(gun => gun.idString == (item as DualGunNarrowing).singleVariant) as SingleGunNarrowing | undefined)?.fists.right.x;
+            }
+        }
+    ),
+    rightY: new PropertyDesc(
+        ["fists", "right", "y"],
+        "y position of right fist",
+        "The y position of the right fist",
+        null,
+        {
+            postProcessor(value, item) {
+                if (value !== null || !item?.isDual) return value;
+
+                return (Guns.find(gun => gun.idString == (item as DualGunNarrowing).singleVariant) as SingleGunNarrowing | undefined)?.fists.right.y;
+            }
+        }
+    ),
+    leftRightOffset: new PropertyDesc(
+        ["leftRightOffset"],
+        "Left/right offset",
+        "An offset used by dual weapons for things such as world image placement, casing spawns and muzzle flash location",
         undefined
     ),
-    image: new PropertyDesc(
-        ["image"],
-        "World image",
-        "The position and possibly angle of this weapon's world image",
-        null
+    casingCount: new PropertyDesc(
+        ["casingParticles", "count"],
+        "Casing count",
+        "The number of casings ejected from this weapon every time it ejects",
+        1
     ),
-    dualVariant: new PropertyDesc(
-        ["dualVariant"],
-        "Dual variant",
-        "The ID string of this weapon's dual variant",
-        undefined
+    casingSpawnMethod: new PropertyDesc(
+        ["casingParticles", "spawnOnReload"],
+        "Spawn casings on reload?",
+        "Whether casings should spawn when the weapon is reloaded (as opposed to when it is fired)",
+        false
+    ),
+    casingEjectionDelay: new PropertyDesc(
+        ["casingParticles", "ejectionDelay"],
+        "Casing ejection delay (ms)",
+        "The amount of time between a casing's triggering action (either firing or reloading) and the casing actually spawning",
+        0
+    ),
+    casingPositionX: new PropertyDesc(
+        ["casingParticles", "position", "x"],
+        "x component of casing spawn location",
+        "The x position of the point where this weapon spawns its casings",
+        null,
+        {
+            postProcessor(value, item) {
+                if (value !== null || !item?.isDual) return value;
+
+                return (Guns.find(gun => gun.idString == (item as DualGunNarrowing).singleVariant) as SingleGunNarrowing | undefined)?.casingParticles?.position.x;
+            }
+        }
+    ),
+    casingPositionY: new PropertyDesc(
+        ["casingParticles", "position", "y"],
+        "y component of casing spawn location",
+        "The y position of the point where this weapon spawns its casings",
+        null,
+        {
+            postProcessor(value, item) {
+                if (value !== null || !item?.isDual) return value;
+
+                return (Guns.find(gun => gun.idString == (item as DualGunNarrowing).singleVariant) as SingleGunNarrowing | undefined)?.casingParticles?.position.y;
+            }
+        }
+    ),
+    imageX: new PropertyDesc(
+        ["image", "position", "x"],
+        "World image x position",
+        "The x position of this weapon's world image",
+        null,
+        {
+            postProcessor(value, item) {
+                if (value !== null || !item?.isDual) return value;
+
+                return (Guns.find(gun => gun.idString == (item as DualGunNarrowing).singleVariant) as SingleGunNarrowing | undefined)?.image.position.x;
+            }
+        }
+    ),
+    imageY: new PropertyDesc(
+        ["image", "position", "y"],
+        "World image y position",
+        "The y position of this weapon's world image",
+        null,
+        {
+            postProcessor(value, item) {
+                if (value !== null || !item?.isDual) return value;
+
+                return (Guns.find(gun => gun.idString == (item as DualGunNarrowing).singleVariant) as SingleGunNarrowing | undefined)?.image.position.y;
+            }
+        }
+    ),
+    imageAngle: new PropertyDesc(
+        ["image", "position", "angle"],
+        "World image angle offset",
+        "The angular offset of this weapon's world image",
+        0,
+        {
+            postProcessor: e => `${e}º`
+        }
     ),
     noMuzzleFlash: new PropertyDesc(
         ["noMuzzleFlash"],
@@ -313,35 +522,53 @@ const properties: Record<string, PropertyDesc> = {
         "Whether this weapon shouldn't show muzzle flashes when firing",
         false
     ),
-    burstProperties: new PropertyDesc(
-        ["burstProperties"],
-        "Burst-fire properties",
-        "Additional information for burst weaponry",
-        null
+    "passiveFX::maxHealth": new PropertyDesc(
+        ["wearerAttributes", "passive", "maxHealth"],
+        "Maximum health (passive effect)",
+        "A number by which the maximum health of this weapon's owner will be multiplied whenever this weapon is in their inventory",
+        1
     ),
-    isDual: new PropertyDesc(
-        ["isDual"],
-        "Is a dual-wielded weapon?",
-        "Whether this specific weapon corresponds tu a dual-wielded item",
-        null
+    "passiveFX::maxAdrenaline": new PropertyDesc(
+        ["wearerAttributes", "passive", "maxAdrenaline"],
+        "Maximum adrenaline (passive effect)",
+        "A number by which the maximum adrenaline of this weapon's owner will be multiplied whenever this weapon is in their inventory",
+        1
     ),
-    singleVariant: new PropertyDesc(
-        ["singleVariant"],
-        "Single variant",
-        "The ID string of this weapon's single variant",
-        false
+    "passiveFX::minAdrenaline": new PropertyDesc(
+        ["wearerAttributes", "passive", "minAdrenaline"],
+        "Minimum adrenaline (passive effect)",
+        "Increase the minimum adrenaline of this weapon's owner whenever this weapon is in their inventory by the specified amount",
+        0
     ),
-    wearerAttributes: new PropertyDesc(
-        ["wearerAttributes"],
-        "Wearer attributes",
-        "A collection of effects applied to this weapon's owner according to various conditions",
-        null
+    "passiveFX::speedBoost": new PropertyDesc(
+        ["wearerAttributes", "passive", "speedBoost"],
+        "Speed multiplier (passive effect)",
+        "A number by which the movement speed of this weapon's owner will be multiplied whenever this weapon is in their inventory",
+        1
     ),
-    leftRightOffset: new PropertyDesc(
-        ["leftRightOffset"],
-        "Left/right offset",
-        "An offset used by dual weapons for things such as world image placement, casing spawns and muzzle flash location",
-        undefined
+    "activeFX::maxHealth": new PropertyDesc(
+        ["wearerAttributes", "active", "maxHealth"],
+        "Maximum health (active effect)",
+        "A number by which the maximum health of this weapon's owner will be multiplied whenever this weapon is the active one",
+        1
+    ),
+    "activeFX::maxAdrenaline": new PropertyDesc(
+        ["wearerAttributes", "active", "maxAdrenaline"],
+        "Maximum adrenaline (active effect)",
+        "A number by which the maximum adrenaline of this weapon's owner will be multiplied whenever this weapon is the active one",
+        1
+    ),
+    "activeFX::minAdrenaline": new PropertyDesc(
+        ["wearerAttributes", "active", "minAdrenaline"],
+        "Minimum adrenaline (active effect)",
+        "Increase the minimum adrenaline of this weapon's owner whenever this weapon is the active one by the specified amount",
+        0
+    ),
+    "activeFX::speedBoost": new PropertyDesc(
+        ["wearerAttributes", "active", "speedBoost"],
+        "Speed multiplier (active effect)",
+        "A number by which the movement speed of this weapon's owner will be multiplied whenever this weapon is the active one",
+        1
     )
 };
 
@@ -364,7 +591,7 @@ const columnPropertyMap = new Map<TableColumn<GunDefinition, Maybe<unknown>>, Pr
                     }
                 }
 
-                return Maybe.from((propertyDesc.postProcessor ?? (e => e))(res));
+                return Maybe.from((propertyDesc.config?.postProcessor ?? (e => e))(res, item));
             },
             propertyDesc.description
         );
@@ -381,7 +608,7 @@ const columnPropertyMap = new Map<TableColumn<GunDefinition, Maybe<unknown>>, Pr
                     innerText: String(value)
                 }
                 : {
-                    innerText: String((property.postProcessor ?? (e => e))(property.defaultValue)),
+                    innerText: String((property.config?.postProcessor ?? (e => e))(property.defaultValue, item)),
                     className: "no-value-wrapper",
                     title: "No value was specified for this attribute; shown here is the default value",
                     style: {
